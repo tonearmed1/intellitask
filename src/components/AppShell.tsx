@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -14,8 +14,25 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { useCommandBar } from "@/features/command-bar/CommandBarContext";
+import { isEditableTarget, useCommandBar } from "@/features/command-bar/CommandBarContext";
 import { cn } from "@/lib/cn";
+
+/** Global "N" shortcut → new quick task, ignored while typing or with a modal/command-bar open. */
+function useNewTaskShortcut(commandBarOpen: boolean) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key.toLowerCase() !== "n") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isEditableTarget(e.target)) return;
+      if (commandBarOpen || document.querySelector('[role="dialog"]')) return;
+      e.preventDefault();
+      navigate("/projects?new=quick");
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [navigate, commandBarOpen]);
+}
 
 const NAV_ITEMS = [
   { to: "/", label: "Today", icon: CalendarDays, end: true },
@@ -28,10 +45,11 @@ const NAV_ITEMS = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { username, logout } = useAuth();
-  const { setOpen } = useCommandBar();
+  const { open: commandBarOpen, setOpen } = useCommandBar();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  useNewTaskShortcut(commandBarOpen);
 
   async function handleLogout() {
     setLoggingOut(true);
