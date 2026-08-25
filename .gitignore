@@ -27,3 +27,8 @@ test-results
 /tests/e2e/.auth
 
 .DS_Store
+
+# playwright
+/test-results
+/playwright-report
+/playwright/.cache

@@ -71,17 +71,21 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ ok: true });
 });
 
+// Unlike other endpoints, an anonymous caller here is a normal, expected
+// case (e.g. the client checking session state on load) rather than an
+// error — so this returns 200 with `username: null` instead of 401,
+// keeping the browser console free of noise for a routine check.
 authRoutes.get("/me", async (c) => {
   const db = c.get("db");
   const sessionId = getSessionCookieValue(c.req.header("cookie") ?? null);
-  if (!sessionId) throw Errors.unauthorized();
+  if (!sessionId) return c.json({ username: null });
 
   const session = await getValidSession(db, sessionId);
-  if (!session) throw Errors.unauthorized();
+  if (!session) return c.json({ username: null });
 
   const rows = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
   const user = rows[0];
-  if (!user) throw Errors.unauthorized();
+  if (!user) return c.json({ username: null });
 
   return c.json({ username: user.username });
 });
