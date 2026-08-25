@@ -1,0 +1,29 @@
+node_modules
+dist
+dist-ssr
+.wrangler
+*.tsbuildinfo
+.dev.vars
+.dev.vars.*
+*.local
+.env
+.env.*
+!.env.example
+worker-configuration.d.ts
+
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# logs
+*.log
+npm-debug.log*
+
+# test artifacts
+coverage
+playwright-report
+test-results
+/tests/e2e/.auth
+
+.DS_Store
