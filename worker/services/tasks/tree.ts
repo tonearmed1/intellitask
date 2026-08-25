@@ -1,4 +1,9 @@
-import type { Task, TaskDependency, TaskWithChildren } from "@shared/types";
+import type {
+  Task,
+  TaskDependency,
+  TaskDependencyRef,
+  TaskWithChildren,
+} from "@shared/types";
 
 const RESOLVED_STATUSES = new Set(["done", "cancelled"]);
 
@@ -14,10 +19,12 @@ export function buildTaskTree(
   dependencies: TaskDependency[],
 ): TaskWithChildren[] {
   const byId = new Map(tasks.map((t) => [t.id, t]));
-  const dependsOnByTask = new Map<string, string[]>();
+  const dependsOnByTask = new Map<string, TaskDependencyRef[]>();
   for (const dep of dependencies) {
+    const target = byId.get(dep.dependsOnTaskId);
+    if (!target) continue;
     const list = dependsOnByTask.get(dep.taskId) ?? [];
-    list.push(dep.dependsOnTaskId);
+    list.push({ dependencyId: dep.id, taskId: dep.dependsOnTaskId, title: target.title });
     dependsOnByTask.set(dep.taskId, list);
   }
 
@@ -34,9 +41,9 @@ export function buildTaskTree(
 
   function computeBlocked(taskId: string): boolean {
     const deps = dependsOnByTask.get(taskId) ?? [];
-    return deps.some((depId) => {
-      const dep = byId.get(depId);
-      return dep ? !RESOLVED_STATUSES.has(dep.status) : false;
+    return deps.some((dep) => {
+      const target = byId.get(dep.taskId);
+      return target ? !RESOLVED_STATUSES.has(target.status) : false;
     });
   }
 

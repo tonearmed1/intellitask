@@ -9,6 +9,12 @@ import {
   tasks,
 } from "../../db/schema";
 import { rowToContextEntry, rowToMilestone, rowToProject, rowToTask } from "../../db/mappers";
+import {
+  DEPENDENCY_INSERT_CHUNK_SIZE,
+  MILESTONE_INSERT_CHUNK_SIZE,
+  TASK_INSERT_CHUNK_SIZE,
+  insertInChunks,
+} from "../../db/chunkedInsert";
 import { newId, nowIso } from "../../lib/ids";
 import { sanitizePlainText } from "../../lib/sanitize";
 import { toJsonText } from "../../lib/json";
@@ -128,6 +134,31 @@ export async function createProjectWithAiPlan(
   }
 
   const projectId = newId("proj");
+  const createdAt = nowIso();
+
+  // Insert a minimal placeholder row first so ai_runs (which has a FK to
+  // projects) has something to reference regardless of whether the AI call
+  // succeeds. It's filled in with the real plan below, or removed if
+  // generation fails.
+  await db.insert(projects).values({
+    id: projectId,
+    title: sanitizePlainText(input.title, 200),
+    description: input.description ? sanitizePlainText(input.description, 2000) : null,
+    deadline: input.deadline,
+    location: input.location ? sanitizePlainText(input.location, 200) : null,
+    priority: input.priority,
+    notes: input.notes ? sanitizePlainText(input.notes, 5000) : null,
+    status: "active",
+    isQuickTask: false,
+    projectSummary: null,
+    assumptions: toJsonText([]),
+    questions: toJsonText([]),
+    risks: toJsonText([]),
+    missingInformation: toJsonText([]),
+    createdAt,
+    updatedAt: createdAt,
+  });
+
   const start = Date.now();
   let plan;
   try {
@@ -173,6 +204,7 @@ export async function createProjectWithAiPlan(
       null,
       Date.now() - start,
     );
+    await db.delete(projects).where(eq(projects.id, projectId));
     throw err;
   }
 
@@ -189,24 +221,17 @@ export async function createProjectWithAiPlan(
     answeredAt: null,
   }));
 
-  await db.insert(projects).values({
-    id: projectId,
-    title: sanitizePlainText(input.title, 200),
-    description: input.description ? sanitizePlainText(input.description, 2000) : null,
-    deadline: input.deadline,
-    location: input.location ? sanitizePlainText(input.location, 200) : null,
-    priority: input.priority,
-    notes: input.notes ? sanitizePlainText(input.notes, 5000) : null,
-    status: "active",
-    isQuickTask: false,
-    projectSummary: sanitizePlainText(plan.projectSummary, 1000),
-    assumptions: toJsonText(assumptions),
-    questions: toJsonText(questions),
-    risks: toJsonText(plan.risks),
-    missingInformation: toJsonText(plan.missingInformation),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  await db
+    .update(projects)
+    .set({
+      projectSummary: sanitizePlainText(plan.projectSummary, 1000),
+      assumptions: toJsonText(assumptions),
+      questions: toJsonText(questions),
+      risks: toJsonText(plan.risks),
+      missingInformation: toJsonText(plan.missingInformation),
+      updatedAt: timestamp,
+    })
+    .where(eq(projects.id, projectId));
 
   const researchedTitles = new Set<string>();
   const rootNodes = workstreamsToRootNodes(plan.workstreams);
@@ -217,33 +242,31 @@ export async function createProjectWithAiPlan(
     researchedTitles,
   });
 
-  if (rows.length > 0) {
-    await db.insert(tasks).values(
-      rows.map(({ dependencyTitles: _dependencyTitles, ...row }) => row),
-    );
-  }
+  const taskRowsToInsert = rows.map(({ dependencyTitles: _dependencyTitles, ...row }) => row);
+  await insertInChunks(db, taskRowsToInsert, TASK_INSERT_CHUNK_SIZE, (chunk) =>
+    db.insert(tasks).values(chunk),
+  );
 
   const dependencyRows = resolveDependencyTitles(rows, timestamp);
-  if (dependencyRows.length > 0) {
-    await db.insert(taskDependencies).values(dependencyRows);
-  }
+  await insertInChunks(db, dependencyRows, DEPENDENCY_INSERT_CHUNK_SIZE, (chunk) =>
+    db.insert(taskDependencies).values(chunk),
+  );
 
-  if (plan.suggestedMilestones.length > 0) {
-    await db.insert(milestones).values(
-      plan.suggestedMilestones.map((m, index) => ({
-        id: newId("mile"),
-        projectId,
-        title: sanitizePlainText(m.title, 200),
-        description: m.description ? sanitizePlainText(m.description, 500) : null,
-        dueDate: m.dueDate,
-        completed: false,
-        source: "ai_generated" as const,
-        sortOrder: index,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      })),
-    );
-  }
+  const milestoneRows = plan.suggestedMilestones.map((m, index) => ({
+    id: newId("mile"),
+    projectId,
+    title: sanitizePlainText(m.title, 200),
+    description: m.description ? sanitizePlainText(m.description, 500) : null,
+    dueDate: m.dueDate,
+    completed: false,
+    source: "ai_generated" as const,
+    sortOrder: index,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }));
+  await insertInChunks(db, milestoneRows, MILESTONE_INSERT_CHUNK_SIZE, (chunk) =>
+    db.insert(milestones).values(chunk),
+  );
 
   if (rawResearchResults.length > 0) {
     await persistResearchResults(

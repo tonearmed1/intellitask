@@ -14,7 +14,4 @@ export default defineConfig({
       "@shared": path.resolve(dirname, "./shared"),
     },
   },
-  build: {
-    outDir: "dist/client",
-  },
 });

@@ -70,9 +70,15 @@ export interface Task {
   requiresResearch: boolean;
 }
 
+export interface TaskDependencyRef {
+  dependencyId: string;
+  taskId: string;
+  title: string;
+}
+
 export interface TaskWithChildren extends Task {
   children: TaskWithChildren[];
-  dependsOn: string[];
+  dependsOn: TaskDependencyRef[];
   blockedByIncomplete: boolean;
 }
 
