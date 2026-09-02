@@ -4,7 +4,6 @@ import { taskDependencies, tasks } from "../../db/schema";
 import { rowToTask } from "../../db/mappers";
 import { newId, nowIso } from "../../lib/ids";
 import { sanitizePlainText } from "../../lib/sanitize";
-import { toJsonText } from "../../lib/json";
 import { Errors } from "../../lib/errors";
 import type {
   ItemState,
@@ -75,7 +74,7 @@ export async function createTask(db: Database, input: CreateTaskInput): Promise<
     sortOrder,
     taskType,
     itemState: taskType === "item" ? "need" : null,
-    tags: toJsonText([]),
+    tags: [],
     reason: input.reason ? sanitizePlainText(input.reason, 500) : null,
     requiresResearch: false,
   });
@@ -132,7 +131,7 @@ export async function updateTask(
             : null
           : existing.notes,
       itemState: patch.itemState !== undefined ? patch.itemState : existing.itemState,
-      tags: patch.tags !== undefined ? toJsonText(patch.tags) : existing.tags,
+      tags: patch.tags !== undefined ? patch.tags : existing.tags,
       completedAt,
       updatedAt: nowIso(),
     })

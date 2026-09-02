@@ -4,7 +4,6 @@ import { contextEntries } from "../../db/schema";
 import { rowToContextEntry } from "../../db/mappers";
 import { newId, nowIso } from "../../lib/ids";
 import { sanitizePlainText } from "../../lib/sanitize";
-import { toJsonText } from "../../lib/json";
 import { Errors } from "../../lib/errors";
 import type { ContextCategory, ContextEntry } from "@shared/types";
 
@@ -34,7 +33,7 @@ export async function createContextEntry(
     category: input.category,
     title: sanitizePlainText(input.title, 200),
     content: sanitizePlainText(input.content, 5000),
-    tags: toJsonText((input.tags ?? []).map((t) => sanitizePlainText(t, 50))),
+    tags: (input.tags ?? []).map((t) => sanitizePlainText(t, 50)),
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -59,7 +58,7 @@ export async function updateContextEntry(
         patch.content !== undefined ? sanitizePlainText(patch.content, 5000) : existing.content,
       tags:
         patch.tags !== undefined
-          ? toJsonText(patch.tags.map((t) => sanitizePlainText(t, 50)))
+          ? patch.tags.map((t) => sanitizePlainText(t, 50))
           : existing.tags,
       updatedAt: nowIso(),
     })

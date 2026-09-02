@@ -11,11 +11,6 @@ import {
   tasks,
 } from "../../db/schema";
 import { rowToContextEntry, rowToTask } from "../../db/mappers";
-import {
-  DEPENDENCY_INSERT_CHUNK_SIZE,
-  TASK_INSERT_CHUNK_SIZE,
-  insertInChunks,
-} from "../../db/chunkedInsert";
 import { newId, nowIso } from "../../lib/ids";
 import { Errors } from "../../lib/errors";
 import { getAiProvider } from "../ai";
@@ -158,14 +153,12 @@ export async function expandTaskWithAi(
 
   if (rows.length > 0) {
     const taskRowsToInsert = rows.map(({ dependencyTitles: _d, ...row }) => row);
-    await insertInChunks(db, taskRowsToInsert, TASK_INSERT_CHUNK_SIZE, (chunk) =>
-      db.insert(tasks).values(chunk),
-    );
     const existingForLookup = taskRows.map((t) => ({ id: t.id, title: t.title }));
     const dependencyRows = resolveDependencyTitles(rows, timestamp, existingForLookup);
-    await insertInChunks(db, dependencyRows, DEPENDENCY_INSERT_CHUNK_SIZE, (chunk) =>
-      db.insert(taskDependencies).values(chunk),
-    );
+    await db.transaction(async (tx) => {
+      await tx.insert(tasks).values(taskRowsToInsert);
+      if (dependencyRows.length > 0) await tx.insert(taskDependencies).values(dependencyRows);
+    });
   }
 
   return getProjectDetail(db, project.id);

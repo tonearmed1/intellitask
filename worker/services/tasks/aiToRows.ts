@@ -7,7 +7,6 @@ import type {
   TaskType,
 } from "@shared/types";
 import { newId } from "../../lib/ids";
-import { toJsonText } from "../../lib/json";
 import { sanitizePlainText } from "../../lib/sanitize";
 
 /** A task row plus the raw (title-based) dependency references the AI gave us, still unresolved to ids. */
@@ -32,7 +31,7 @@ export interface FlattenedTaskRow {
   sortOrder: number;
   taskType: TaskType;
   itemState: ItemState | null;
-  tags: string;
+  tags: string[];
   reason: string | null;
   requiresResearch: boolean;
   dependencyTitles: string[];
@@ -80,7 +79,7 @@ export function flattenAiTaskNodes(
         sortOrder: startOrder + index,
         taskType: node.taskType ?? "task",
         itemState,
-        tags: toJsonText([]),
+        tags: [],
         reason: node.reason ? sanitizePlainText(node.reason, 500) : null,
         requiresResearch: node.requiresResearch,
         dependencyTitles: node.dependencies,

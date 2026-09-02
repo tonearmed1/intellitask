@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", ".wrangler", "worker-configuration.d.ts"] },
+  { ignores: ["dist", "node_modules", ".vercel"] },
   {
     files: ["src/**/*.{ts,tsx}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -30,11 +30,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ["worker/**/*.ts"],
+    files: ["worker/**/*.ts", "api/**/*.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: { ...globals.worker },
+      globals: globals.node,
     },
     rules: {
       "@typescript-eslint/no-unused-vars": [
@@ -49,7 +49,7 @@ export default tseslint.config(
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: { ...globals.browser, ...globals.worker },
+      globals: { ...globals.browser, ...globals.node },
     },
   },
   {
@@ -64,7 +64,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["*.config.{ts,js}"],
+    files: ["scripts/**/*.{ts,mjs}", "*.config.{ts,js}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

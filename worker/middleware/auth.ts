@@ -14,9 +14,11 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   c.set("userId", session.userId);
 
-  // Cheap, non-blocking housekeeping so expired sessions don't accumulate.
+  // Cheap housekeeping so expired sessions don't accumulate. Awaited
+  // directly (no background-task API to rely on here) but only runs on a
+  // small fraction of requests, and it's a single indexed DELETE.
   if (Math.random() < 0.02) {
-    c.executionCtx.waitUntil(pruneExpiredSessions(db).catch(() => undefined));
+    await pruneExpiredSessions(db).catch(() => undefined);
   }
 
   await next();

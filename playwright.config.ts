@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_API_PORT, E2E_DATABASE_URL } from "./tests/e2e/db";
 
-const PORT = 5175;
-const BASE_URL = `http://localhost:${PORT}`;
+const CLIENT_PORT = 5175;
+const BASE_URL = `http://localhost:${CLIENT_PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -27,12 +28,29 @@ export default defineConfig({
       use: { ...devices["Pixel 7"] },
     },
   ],
-  webServer: {
-    command: `npx vite dev --port ${PORT}`,
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60000,
-    stdout: "pipe",
-    stderr: "pipe",
-  },
+  webServer: [
+    {
+      command: "npx tsx --tsconfig tsconfig.worker.json scripts/dev-server.ts",
+      url: `http://localhost:${E2E_API_PORT}/api/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        DATABASE_URL: E2E_DATABASE_URL,
+        API_PORT: String(E2E_API_PORT),
+      },
+    },
+    {
+      command: `npx vite dev --port ${CLIENT_PORT}`,
+      url: BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        API_PORT: String(E2E_API_PORT),
+      },
+    },
+  ],
 });

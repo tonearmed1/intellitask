@@ -3,7 +3,8 @@ import type { Env } from "./env";
 
 export interface AppVariables {
   db: Database;
+  appEnv: Env;
   userId: string;
 }
 
-export type AppEnv = { Bindings: Env; Variables: AppVariables };
+export type AppEnv = { Variables: AppVariables };

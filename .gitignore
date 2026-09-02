@@ -1,15 +1,11 @@
 node_modules
 dist
 dist-ssr
-.wrangler
 *.tsbuildinfo
-.dev.vars
-.dev.vars.*
-*.local
+.vercel
 .env
 .env.*
 !.env.example
-worker-configuration.d.ts
 
 # editors
 .vscode/*

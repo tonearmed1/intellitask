@@ -5,8 +5,13 @@ test("mobile viewport: nav collapses behind a hamburger drawer", async ({ page }
   await loginAndReachApp(page);
   await page.goto("/projects");
 
-  // The full sidebar should not be permanently visible on a narrow viewport.
-  await expect(page.getByRole("link", { name: "Timeline" })).toBeHidden();
+  // The hamburger trigger confirms mobile layout is active. The drawer is
+  // moved off-screen via a CSS transform rather than display:none (so it can
+  // slide in), so it stays technically "visible" to Playwright even when
+  // off-canvas — check its position instead of toBeHidden().
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+  const closedBox = await page.getByRole("link", { name: "Timeline" }).boundingBox();
+  expect(closedBox?.x).toBeLessThan(0);
 
   await page.getByRole("button", { name: "Open menu" }).click();
   await expect(page.getByRole("link", { name: "Timeline" })).toBeVisible();

@@ -1,33 +1,29 @@
-import {
-  sqliteTable,
-  text,
-  integer,
-} from "drizzle-orm/sqlite-core";
+import { pgTable, text, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const sessions = sqliteTable("sessions", {
+export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   expiresAt: text("expires_at").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const settings = sqliteTable("settings", {
+export const settings = pgTable("settings", {
   id: integer("id").primaryKey(),
   aiProvider: text("ai_provider").notNull(),
   aiModel: text("ai_model").notNull(),
-  allowWebResearch: integer("allow_web_research", { mode: "boolean" }).notNull(),
+  allowWebResearch: boolean("allow_web_research").notNull(),
   theme: text("theme").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const projects = sqliteTable("projects", {
+export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
@@ -36,17 +32,17 @@ export const projects = sqliteTable("projects", {
   priority: text("priority").notNull(),
   notes: text("notes"),
   status: text("status").notNull(),
-  isQuickTask: integer("is_quick_task", { mode: "boolean" }).notNull(),
+  isQuickTask: boolean("is_quick_task").notNull(),
   projectSummary: text("project_summary"),
-  assumptions: text("assumptions").notNull(),
-  questions: text("questions").notNull(),
-  risks: text("risks").notNull(),
-  missingInformation: text("missing_information").notNull(),
+  assumptions: jsonb("assumptions").notNull().$type<unknown[]>(),
+  questions: jsonb("questions").notNull().$type<unknown[]>(),
+  risks: jsonb("risks").notNull().$type<string[]>(),
+  missingInformation: jsonb("missing_information").notNull().$type<string[]>(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const tasks = sqliteTable("tasks", {
+export const tasks = pgTable("tasks", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   parentTaskId: text("parent_task_id"),
@@ -62,47 +58,47 @@ export const tasks = sqliteTable("tasks", {
   updatedAt: text("updated_at").notNull(),
   completedAt: text("completed_at"),
   source: text("source").notNull(),
-  aiGenerated: integer("ai_generated", { mode: "boolean" }).notNull(),
-  researchSupported: integer("research_supported", { mode: "boolean" }).notNull(),
+  aiGenerated: boolean("ai_generated").notNull(),
+  researchSupported: boolean("research_supported").notNull(),
   sortOrder: integer("sort_order").notNull(),
   taskType: text("task_type").notNull(),
   itemState: text("item_state"),
-  tags: text("tags").notNull(),
+  tags: jsonb("tags").notNull().$type<string[]>(),
   reason: text("reason"),
-  requiresResearch: integer("requires_research", { mode: "boolean" }).notNull(),
+  requiresResearch: boolean("requires_research").notNull(),
 });
 
-export const taskDependencies = sqliteTable("task_dependencies", {
+export const taskDependencies = pgTable("task_dependencies", {
   id: text("id").primaryKey(),
   taskId: text("task_id").notNull(),
   dependsOnTaskId: text("depends_on_task_id").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const milestones = sqliteTable("milestones", {
+export const milestones = pgTable("milestones", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),
   dueDate: text("due_date"),
-  completed: integer("completed", { mode: "boolean" }).notNull(),
+  completed: boolean("completed").notNull(),
   source: text("source").notNull(),
   sortOrder: integer("sort_order").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const contextEntries = sqliteTable("context_entries", {
+export const contextEntries = pgTable("context_entries", {
   id: text("id").primaryKey(),
   category: text("category").notNull(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  tags: text("tags").notNull(),
+  tags: jsonb("tags").notNull().$type<string[]>(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
-export const researchSources = sqliteTable("research_sources", {
+export const researchSources = pgTable("research_sources", {
   id: text("id").primaryKey(),
   query: text("query").notNull(),
   sourceUrl: text("source_url").notNull(),
@@ -112,7 +108,7 @@ export const researchSources = sqliteTable("research_sources", {
   providerName: text("provider_name").notNull(),
 });
 
-export const projectResearch = sqliteTable("project_research", {
+export const projectResearch = pgTable("project_research", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   researchSourceId: text("research_source_id").notNull(),
@@ -120,14 +116,14 @@ export const projectResearch = sqliteTable("project_research", {
   createdAt: text("created_at").notNull(),
 });
 
-export const aiRuns = sqliteTable("ai_runs", {
+export const aiRuns = pgTable("ai_runs", {
   id: text("id").primaryKey(),
   operation: text("operation").notNull(),
   provider: text("provider").notNull(),
   model: text("model").notNull(),
   projectId: text("project_id"),
   taskId: text("task_id"),
-  success: integer("success", { mode: "boolean" }).notNull(),
+  success: boolean("success").notNull(),
   errorMessage: text("error_message"),
   promptTokens: integer("prompt_tokens"),
   completionTokens: integer("completion_tokens"),
@@ -135,7 +131,7 @@ export const aiRuns = sqliteTable("ai_runs", {
   createdAt: text("created_at").notNull(),
 });
 
-export const inboxItems = sqliteTable("inbox_items", {
+export const inboxItems = pgTable("inbox_items", {
   id: text("id").primaryKey(),
   content: text("content").notNull(),
   status: text("status").notNull(),

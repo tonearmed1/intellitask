@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { createDb } from "./db/client";
+import { loadEnv } from "./types/env";
 import { AppError } from "./lib/errors";
 import { requireAuth } from "./middleware/auth";
 import { requireCsrf } from "./middleware/csrf";
@@ -17,8 +18,16 @@ import type { AppEnv } from "./types/hono";
 
 const app = new Hono<AppEnv>();
 
+// Registered before the DB-connecting middleware below so health checks
+// (used by local dev tooling and Playwright's webServer readiness check)
+// never depend on the database being reachable yet.
+app.get("/api/health", (c) => c.json({ ok: true }));
+
 app.use("*", async (c, next) => {
-  c.set("db", createDb(c.env.DB));
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new AppError(500, "missing_config", "DATABASE_URL is not configured.");
+  c.set("db", createDb(databaseUrl));
+  c.set("appEnv", loadEnv());
   await next();
 });
 

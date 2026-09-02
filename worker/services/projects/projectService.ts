@@ -4,23 +4,19 @@ import {
   aiRuns,
   contextEntries,
   milestones,
+  projectResearch,
   projects,
+  researchSources,
   taskDependencies,
   tasks,
 } from "../../db/schema";
 import { rowToContextEntry, rowToMilestone, rowToProject, rowToTask } from "../../db/mappers";
-import {
-  DEPENDENCY_INSERT_CHUNK_SIZE,
-  MILESTONE_INSERT_CHUNK_SIZE,
-  TASK_INSERT_CHUNK_SIZE,
-  insertInChunks,
-} from "../../db/chunkedInsert";
 import { newId, nowIso } from "../../lib/ids";
 import { sanitizePlainText } from "../../lib/sanitize";
-import { toJsonText } from "../../lib/json";
 import { Errors } from "../../lib/errors";
 import type { Env } from "../../types/env";
 import { getAiProvider } from "../ai";
+import type { AiCallMeta } from "../ai/provider";
 import type { AiTaskNode } from "@shared/ai-schema";
 import type {
   Assumption,
@@ -39,7 +35,6 @@ import { flattenAiTaskNodes, resolveDependencyTitles } from "../tasks/aiToRows";
 import { selectRelevantContext } from "../context/relevance";
 import { findSimilarProjects } from "../memory/similarProjects";
 import { getResearchProvider, shouldResearch } from "../research";
-import { persistResearchResults } from "../research/researchService";
 import { getSettings } from "../settings/settingsService";
 
 export interface CreateProjectAiInput {
@@ -133,34 +128,13 @@ export async function createProjectWithAiPlan(
     researchSnippets = rawResearchResults;
   }
 
+  // The AI call happens before any DB write. If it fails, nothing has been
+  // created — no placeholder row to clean up — and the failure is still
+  // logged (with project_id left null, since no project exists).
   const projectId = newId("proj");
-  const createdAt = nowIso();
-
-  // Insert a minimal placeholder row first so ai_runs (which has a FK to
-  // projects) has something to reference regardless of whether the AI call
-  // succeeds. It's filled in with the real plan below, or removed if
-  // generation fails.
-  await db.insert(projects).values({
-    id: projectId,
-    title: sanitizePlainText(input.title, 200),
-    description: input.description ? sanitizePlainText(input.description, 2000) : null,
-    deadline: input.deadline,
-    location: input.location ? sanitizePlainText(input.location, 200) : null,
-    priority: input.priority,
-    notes: input.notes ? sanitizePlainText(input.notes, 5000) : null,
-    status: "active",
-    isQuickTask: false,
-    projectSummary: null,
-    assumptions: toJsonText([]),
-    questions: toJsonText([]),
-    risks: toJsonText([]),
-    missingInformation: toJsonText([]),
-    createdAt,
-    updatedAt: createdAt,
-  });
-
   const start = Date.now();
   let plan;
+  let aiMeta: AiCallMeta;
   try {
     const result = await provider.generateProject(
       {
@@ -177,26 +151,14 @@ export async function createProjectWithAiPlan(
       { signal },
     );
     plan = result.data;
-    await logAiRun(
-      db,
-      "generateProject",
-      result.meta.provider,
-      result.meta.model,
-      projectId,
-      null,
-      true,
-      null,
-      result.meta.promptTokens,
-      result.meta.completionTokens,
-      result.meta.durationMs,
-    );
+    aiMeta = result.meta;
   } catch (err) {
     await logAiRun(
       db,
       "generateProject",
       provider.name,
       settings.aiModel,
-      projectId,
+      null,
       null,
       false,
       err instanceof Error ? err.message : String(err),
@@ -204,7 +166,6 @@ export async function createProjectWithAiPlan(
       null,
       Date.now() - start,
     );
-    await db.delete(projects).where(eq(projects.id, projectId));
     throw err;
   }
 
@@ -221,37 +182,14 @@ export async function createProjectWithAiPlan(
     answeredAt: null,
   }));
 
-  await db
-    .update(projects)
-    .set({
-      projectSummary: sanitizePlainText(plan.projectSummary, 1000),
-      assumptions: toJsonText(assumptions),
-      questions: toJsonText(questions),
-      risks: toJsonText(plan.risks),
-      missingInformation: toJsonText(plan.missingInformation),
-      updatedAt: timestamp,
-    })
-    .where(eq(projects.id, projectId));
-
-  const researchedTitles = new Set<string>();
   const rootNodes = workstreamsToRootNodes(plan.workstreams);
   const rows = flattenAiTaskNodes(rootNodes, {
     projectId,
     parentTaskId: null,
     timestamp,
-    researchedTitles,
   });
-
   const taskRowsToInsert = rows.map(({ dependencyTitles: _dependencyTitles, ...row }) => row);
-  await insertInChunks(db, taskRowsToInsert, TASK_INSERT_CHUNK_SIZE, (chunk) =>
-    db.insert(tasks).values(chunk),
-  );
-
   const dependencyRows = resolveDependencyTitles(rows, timestamp);
-  await insertInChunks(db, dependencyRows, DEPENDENCY_INSERT_CHUNK_SIZE, (chunk) =>
-    db.insert(taskDependencies).values(chunk),
-  );
-
   const milestoneRows = plan.suggestedMilestones.map((m, index) => ({
     id: newId("mile"),
     projectId,
@@ -264,20 +202,70 @@ export async function createProjectWithAiPlan(
     createdAt: timestamp,
     updatedAt: timestamp,
   }));
-  await insertInChunks(db, milestoneRows, MILESTONE_INSERT_CHUNK_SIZE, (chunk) =>
-    db.insert(milestones).values(chunk),
-  );
 
-  if (rawResearchResults.length > 0) {
-    await persistResearchResults(
-      db,
-      getResearchProvider(env).name,
-      projectId,
-      null,
-      input.title,
-      rawResearchResults,
-    );
-  }
+  // Every write for this plan lands in one transaction: either the whole
+  // project (row + tasks + dependencies + milestones + research links)
+  // exists, or none of it does.
+  await db.transaction(async (tx) => {
+    await tx.insert(projects).values({
+      id: projectId,
+      title: sanitizePlainText(input.title, 200),
+      description: input.description ? sanitizePlainText(input.description, 2000) : null,
+      deadline: input.deadline,
+      location: input.location ? sanitizePlainText(input.location, 200) : null,
+      priority: input.priority,
+      notes: input.notes ? sanitizePlainText(input.notes, 5000) : null,
+      status: "active",
+      isQuickTask: false,
+      projectSummary: sanitizePlainText(plan.projectSummary, 1000),
+      assumptions,
+      questions,
+      risks: plan.risks,
+      missingInformation: plan.missingInformation,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    if (taskRowsToInsert.length > 0) await tx.insert(tasks).values(taskRowsToInsert);
+    if (dependencyRows.length > 0) await tx.insert(taskDependencies).values(dependencyRows);
+    if (milestoneRows.length > 0) await tx.insert(milestones).values(milestoneRows);
+
+    for (const r of rawResearchResults) {
+      const sourceId = newId("rsrc");
+      await tx.insert(researchSources).values({
+        id: sourceId,
+        query: sanitizePlainText(input.title, 300),
+        sourceUrl: r.url,
+        title: sanitizePlainText(r.title, 300),
+        extract: sanitizePlainText(r.extract, 1500),
+        researchedAt: timestamp,
+        providerName: getResearchProvider(env).name,
+      });
+      await tx.insert(projectResearch).values({
+        id: newId("preg"),
+        projectId,
+        researchSourceId: sourceId,
+        taskId: null,
+        createdAt: timestamp,
+      });
+    }
+  });
+
+  // Logged after the transaction commits, now that the project row it
+  // references actually exists.
+  await logAiRun(
+    db,
+    "generateProject",
+    aiMeta.provider,
+    aiMeta.model,
+    projectId,
+    null,
+    true,
+    null,
+    aiMeta.promptTokens,
+    aiMeta.completionTokens,
+    aiMeta.durationMs,
+  );
 
   return getProjectDetail(db, projectId);
 }
@@ -291,49 +279,51 @@ export async function createQuickTask(
   const taskId = newId("task");
   const title = sanitizePlainText(input.title, 200);
 
-  await db.insert(projects).values({
-    id: projectId,
-    title,
-    description: null,
-    deadline: input.dueDate ?? null,
-    location: null,
-    priority: input.priority ?? "medium",
-    notes: null,
-    status: "active",
-    isQuickTask: true,
-    projectSummary: null,
-    assumptions: toJsonText([]),
-    questions: toJsonText([]),
-    risks: toJsonText([]),
-    missingInformation: toJsonText([]),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  await db.transaction(async (tx) => {
+    await tx.insert(projects).values({
+      id: projectId,
+      title,
+      description: null,
+      deadline: input.dueDate ?? null,
+      location: null,
+      priority: input.priority ?? "medium",
+      notes: null,
+      status: "active",
+      isQuickTask: true,
+      projectSummary: null,
+      assumptions: [],
+      questions: [],
+      risks: [],
+      missingInformation: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
 
-  await db.insert(tasks).values({
-    id: taskId,
-    projectId,
-    parentTaskId: null,
-    title,
-    description: null,
-    status: "todo",
-    priority: input.priority ?? "medium",
-    dueDate: input.dueDate ?? null,
-    startDate: null,
-    estimatedEffort: null,
-    notes: input.notes ?? null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    completedAt: null,
-    source: "user",
-    aiGenerated: false,
-    researchSupported: false,
-    sortOrder: 0,
-    taskType: "task",
-    itemState: null,
-    tags: toJsonText([]),
-    reason: null,
-    requiresResearch: false,
+    await tx.insert(tasks).values({
+      id: taskId,
+      projectId,
+      parentTaskId: null,
+      title,
+      description: null,
+      status: "todo",
+      priority: input.priority ?? "medium",
+      dueDate: input.dueDate ?? null,
+      startDate: null,
+      estimatedEffort: null,
+      notes: input.notes ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      completedAt: null,
+      source: "user",
+      aiGenerated: false,
+      researchSupported: false,
+      sortOrder: 0,
+      taskType: "task",
+      itemState: null,
+      tags: [],
+      reason: null,
+      requiresResearch: false,
+    });
   });
 
   return getProjectDetail(db, projectId);
@@ -471,7 +461,7 @@ export async function answerProjectQuestion(
   );
   await db
     .update(projects)
-    .set({ questions: toJsonText(updatedQuestions), updatedAt: nowIso() })
+    .set({ questions: updatedQuestions, updatedAt: nowIso() })
     .where(eq(projects.id, projectId));
   const [row] = await db.select().from(projects).where(eq(projects.id, projectId));
   return rowToProject(row);
@@ -494,7 +484,7 @@ export async function confirmAssumption(
   );
   await db
     .update(projects)
-    .set({ assumptions: toJsonText(updated), updatedAt: nowIso() })
+    .set({ assumptions: updated, updatedAt: nowIso() })
     .where(eq(projects.id, projectId));
   const [row] = await db.select().from(projects).where(eq(projects.id, projectId));
   return rowToProject(row);

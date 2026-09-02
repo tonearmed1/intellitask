@@ -8,7 +8,6 @@ import type {
   ResearchSource,
   Task,
 } from "@shared/types";
-import { parseJsonArray } from "../lib/json";
 import type { schema } from "./client";
 
 type TaskRow = typeof schema.tasks.$inferSelect;
@@ -18,21 +17,25 @@ type ContextEntryRow = typeof schema.contextEntries.$inferSelect;
 type InboxItemRow = typeof schema.inboxItems.$inferSelect;
 type ResearchSourceRow = typeof schema.researchSources.$inferSelect;
 
+// jsonb columns already come back from the driver as parsed JS values
+// (arrays/objects), so these mappers just re-type them — no
+// JSON.parse/stringify needed the way D1's TEXT-encoded columns required.
+
 export function rowToTask(row: TaskRow): Task {
   return {
     ...row,
     itemState: (row.itemState as Task["itemState"]) ?? null,
-    tags: parseJsonArray<string>(row.tags),
+    tags: row.tags ?? [],
   } as Task;
 }
 
 export function rowToProject(row: ProjectRow): Project {
   return {
     ...row,
-    assumptions: parseJsonArray<Assumption>(row.assumptions),
-    questions: parseJsonArray<PlanQuestion>(row.questions),
-    risks: parseJsonArray<string>(row.risks),
-    missingInformation: parseJsonArray<string>(row.missingInformation),
+    assumptions: (row.assumptions as Assumption[]) ?? [],
+    questions: (row.questions as PlanQuestion[]) ?? [],
+    risks: row.risks ?? [],
+    missingInformation: row.missingInformation ?? [],
   } as Project;
 }
 
@@ -43,7 +46,7 @@ export function rowToMilestone(row: MilestoneRow): Milestone {
 export function rowToContextEntry(row: ContextEntryRow): ContextEntry {
   return {
     ...row,
-    tags: parseJsonArray<string>(row.tags),
+    tags: row.tags ?? [],
   } as ContextEntry;
 }
 

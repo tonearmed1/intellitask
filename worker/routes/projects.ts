@@ -57,7 +57,7 @@ projectsRoutes.post("/", async (c) => {
 
   const detail = await createProjectWithAiPlan(
     db,
-    c.env,
+    c.get("appEnv"),
     {
       title: body.title,
       deadline: body.deadline ?? null,
@@ -134,7 +134,7 @@ projectsRoutes.post("/:id/assumptions/:assumptionId", async (c) => {
 
 projectsRoutes.post("/:id/review", async (c) => {
   const db = c.get("db");
-  const review = await reviewProjectWithAi(db, c.env, c.req.param("id"), c.req.raw.signal);
+  const review = await reviewProjectWithAi(db, c.get("appEnv"), c.req.param("id"), c.req.raw.signal);
   return c.json({ review });
 });
 
@@ -157,7 +157,7 @@ projectsRoutes.post("/:id/next-actions", async (c) => {
   const db = c.get("db");
   const actions = await suggestNextActionsForProject(
     db,
-    c.env,
+    c.get("appEnv"),
     c.req.param("id"),
     c.req.raw.signal,
   );
@@ -166,7 +166,7 @@ projectsRoutes.post("/:id/next-actions", async (c) => {
 
 projectsRoutes.post("/:id/improve", async (c) => {
   const db = c.get("db");
-  const suggestions = await improveProjectWithAi(db, c.env, c.req.param("id"), c.req.raw.signal);
+  const suggestions = await improveProjectWithAi(db, c.get("appEnv"), c.req.param("id"), c.req.raw.signal);
   return c.json(suggestions);
 });
 

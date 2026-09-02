@@ -13,11 +13,11 @@ settingsRoutes.get("/", async (c) => {
     settings,
     availableProviders: ["mock", "anthropic", "openai"],
     envDefaults: {
-      aiProvider: c.env.AI_PROVIDER,
-      aiModel: c.env.AI_MODEL,
-      anthropicConfigured: Boolean(c.env.ANTHROPIC_API_KEY),
-      openaiConfigured: Boolean(c.env.OPENAI_API_KEY),
-      researchConfigured: Boolean(c.env.BRAVE_SEARCH_API_KEY),
+      aiProvider: c.get("appEnv").AI_PROVIDER,
+      aiModel: c.get("appEnv").AI_MODEL,
+      anthropicConfigured: Boolean(c.get("appEnv").ANTHROPIC_API_KEY),
+      openaiConfigured: Boolean(c.get("appEnv").OPENAI_API_KEY),
+      researchConfigured: Boolean(c.get("appEnv").BRAVE_SEARCH_API_KEY),
     },
   });
 });

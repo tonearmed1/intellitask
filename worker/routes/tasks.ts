@@ -105,6 +105,6 @@ tasksRoutes.post("/reorder", async (c) => {
 tasksRoutes.post("/:id/expand", async (c) => {
   const db = c.get("db");
   const deeper = c.req.query("deeper") === "true";
-  const detail = await expandTaskWithAi(db, c.env, c.req.param("id"), deeper, c.req.raw.signal);
+  const detail = await expandTaskWithAi(db, c.get("appEnv"), c.req.param("id"), deeper, c.req.raw.signal);
   return c.json(detail);
 });
