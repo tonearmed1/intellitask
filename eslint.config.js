@@ -30,7 +30,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["worker/**/*.ts", "api/**/*.ts"],
+    files: ["worker/**/*.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

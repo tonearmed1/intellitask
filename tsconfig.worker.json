@@ -23,5 +23,5 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["worker", "shared", "api", "scripts/dev-server.ts"]
+  "include": ["worker", "shared", "scripts/dev-server.ts"]
 }
