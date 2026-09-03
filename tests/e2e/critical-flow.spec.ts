@@ -17,7 +17,14 @@ test("critical path: create AI project, expand/edit tasks, persist, review", asy
   await page.goto("/projects");
   await page.getByRole("button", { name: "New" }).click();
   await page.getByRole("menuitem", { name: "AI project" }).click();
-  await page.getByLabel("What do you want to get done?").fill(projectTitle);
+  // Typed character-by-character (not .fill(), which sets the value in one
+  // shot) — this is a regression check for a real bug where the modal's
+  // focus-trap effect re-ran on every keystroke and stole focus to the
+  // close button, making it impossible to type more than one character
+  // without reclicking the field. .fill() bypassed that entirely and never
+  // caught it.
+  await page.getByLabel("What do you want to get done?").pressSequentially(projectTitle);
+  await expect(page.getByLabel("What do you want to get done?")).toHaveValue(projectTitle);
   await page.getByText("Add deadline, description, location").click();
   await page.getByLabel("Deadline").fill("2026-11-03");
 

@@ -17,6 +17,19 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
 
+  // Callers often pass an inline `onClose` (a new function identity every
+  // render). Reading it via a ref — instead of putting it in the effect's
+  // dependency array — means a parent re-render (e.g. typing into a field
+  // inside the modal, which changes state and re-renders the whole tree)
+  // doesn't re-run the effect below. It used to: re-running re-executed
+  // `focusable?.[0]?.focus()` on every keystroke, which steals focus to
+  // whatever is first in the dialog's DOM order (typically the header's
+  // close button) instead of the field being typed into.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -30,7 +43,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === "Tab" && focusable && focusable.length > 0) {
@@ -51,7 +64,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
       document.removeEventListener("keydown", handleKeyDown, true);
       previouslyFocused?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

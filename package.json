@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n api,client -c blue,green \"npm run dev:api\" \"npm run dev:client\"",
-    "dev:api": "tsx --tsconfig tsconfig.worker.json watch scripts/dev-server.ts",
+    "dev:api": "tsx watch --tsconfig tsconfig.worker.json scripts/dev-server.ts",
     "dev:client": "vite dev",
     "build": "tsc -b && vite build && node scripts/build-api.mjs",
     "preview": "vite preview",
