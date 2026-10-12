@@ -15,6 +15,7 @@ import {
 } from "../lib/auth";
 import { Errors } from "../lib/errors";
 import { parseJsonBody } from "../lib/validation";
+import { isAuthDisabled } from "../types/env";
 import type { AppEnv } from "../types/hono";
 
 const loginSchema = z.object({
@@ -76,6 +77,9 @@ authRoutes.post("/logout", async (c) => {
 // error — so this returns 200 with `username: null` instead of 401,
 // keeping the browser console free of noise for a routine check.
 authRoutes.get("/me", async (c) => {
+  if (isAuthDisabled(c.get("appEnv"))) {
+    return c.json({ username: "owner", authDisabled: true });
+  }
   const db = c.get("db");
   const sessionId = getSessionCookieValue(c.req.header("cookie") ?? null);
   if (!sessionId) return c.json({ username: null });

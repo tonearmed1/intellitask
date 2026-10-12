@@ -5,6 +5,8 @@ import { ApiError } from "@/lib/api";
 
 interface AuthState {
   username: string | null;
+  /** True when the server has login turned off (AUTH_DISABLED). */
+  authDisabled: boolean;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -14,6 +16,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
+  const [authDisabled, setAuthDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService
       .me()
       .then((res) => {
-        if (!cancelled) setUsername(res.username);
+        if (cancelled) return;
+        setUsername(res.username);
+        setAuthDisabled(Boolean(res.authDisabled));
       })
       .catch(() => {
         if (!cancelled) setUsername(null);
@@ -49,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ username, loading, login, logout }),
-    [username, loading, login, logout],
+    () => ({ username, authDisabled, loading, login, logout }),
+    [username, authDisabled, loading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

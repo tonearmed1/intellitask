@@ -25,15 +25,16 @@ async function main() {
   await client.connect();
 
   try {
+    await client.query("CREATE SCHEMA IF NOT EXISTS intellitask");
     await client.query(`
-      CREATE TABLE IF NOT EXISTS _migrations (
+      CREATE TABLE IF NOT EXISTS intellitask._migrations (
         name TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `);
 
     const applied = new Set(
-      (await client.query("SELECT name FROM _migrations")).rows.map((r) => r.name),
+      (await client.query("SELECT name FROM intellitask._migrations")).rows.map((r) => r.name),
     );
 
     const files = readdirSync(MIGRATIONS_DIR)
@@ -50,7 +51,7 @@ async function main() {
       await client.query("BEGIN");
       try {
         await client.query(sql);
-        await client.query("INSERT INTO _migrations (name) VALUES ($1)", [file]);
+        await client.query("INSERT INTO intellitask._migrations (name) VALUES ($1)", [file]);
         await client.query("COMMIT");
       } catch (err) {
         await client.query("ROLLBACK");

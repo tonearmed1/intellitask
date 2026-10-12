@@ -1,9 +1,19 @@
 import type { MiddlewareHandler } from "hono";
 import { getSessionCookieValue, getValidSession, pruneExpiredSessions } from "../lib/auth";
 import { Errors } from "../lib/errors";
+import { isAuthDisabled } from "../types/env";
 import type { AppEnv } from "../types/hono";
 
+/** Placeholder user id used when AUTH_DISABLED=true (no session exists). */
+export const OWNER_USER_ID = "owner";
+
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (isAuthDisabled(c.get("appEnv"))) {
+    c.set("userId", OWNER_USER_ID);
+    await next();
+    return;
+  }
+
   const cookieHeader = c.req.header("cookie") ?? null;
   const sessionId = getSessionCookieValue(cookieHeader);
   if (!sessionId) throw Errors.unauthorized();

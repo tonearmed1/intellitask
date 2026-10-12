@@ -7,6 +7,9 @@
 -- application always supplies them explicitly on write, and keeping them as
 -- text avoids timezone-conversion surprises between the app and the DB.
 
+CREATE SCHEMA IF NOT EXISTS intellitask;
+SET search_path TO intellitask;
+
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,

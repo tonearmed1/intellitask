@@ -44,7 +44,7 @@ const NAV_ITEMS = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { username, logout } = useAuth();
+  const { username, authDisabled, logout } = useAuth();
   const { open: commandBarOpen, setOpen } = useCommandBar();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -127,22 +127,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-neutral-200 px-3 py-3 dark:border-neutral-800">
-          <div className="flex items-center justify-between px-1">
-            <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-              {username}
-            </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              aria-label="Sign out"
-              className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+        {!authDisabled && (
+          <div className="border-t border-neutral-200 px-3 py-3 dark:border-neutral-800">
+            <div className="flex items-center justify-between px-1">
+              <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                {username}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                aria-label="Sign out"
+                className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

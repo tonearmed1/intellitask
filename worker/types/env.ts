@@ -3,6 +3,8 @@ export interface Env {
   AI_PROVIDER: string;
   AI_MODEL: string;
   ALLOW_WEB_RESEARCH: string;
+  /** "true" skips login entirely: every request is treated as the owner. */
+  AUTH_DISABLED: string;
 
   SESSION_SECRET?: string;
   ANTHROPIC_API_KEY?: string;
@@ -10,11 +12,16 @@ export interface Env {
   BRAVE_SEARCH_API_KEY?: string;
 }
 
+export function isAuthDisabled(env: Env): boolean {
+  return env.AUTH_DISABLED.trim().toLowerCase() === "true";
+}
+
 export function loadEnv(): Env {
   return {
     AI_PROVIDER: process.env.AI_PROVIDER ?? "mock",
     AI_MODEL: process.env.AI_MODEL ?? "claude-sonnet-4-5",
     ALLOW_WEB_RESEARCH: process.env.ALLOW_WEB_RESEARCH ?? "false",
+    AUTH_DISABLED: process.env.AUTH_DISABLED ?? "false",
     SESSION_SECRET: process.env.SESSION_SECRET,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,

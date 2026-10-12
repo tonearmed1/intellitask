@@ -62,7 +62,7 @@ async function main() {
   await client.connect();
   try {
     await client.query(
-      `INSERT INTO users (id, username, password_hash, created_at)
+      `INSERT INTO intellitask.users (id, username, password_hash, created_at)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (username) DO UPDATE SET password_hash = excluded.password_hash`,
       [id, username, passwordHash, createdAt],

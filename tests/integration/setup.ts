@@ -37,6 +37,7 @@ export async function createTestContext(): Promise<TestContext> {
     AI_PROVIDER: "mock",
     AI_MODEL: "mock-v1",
     ALLOW_WEB_RESEARCH: "false",
+    AUTH_DISABLED: "false",
   };
 
   return {

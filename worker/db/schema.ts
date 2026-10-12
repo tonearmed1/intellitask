@@ -1,20 +1,29 @@
-import { pgTable, text, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgSchema, text, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 
-export const users = pgTable("users", {
+/**
+ * Everything lives in its own Postgres schema rather than `public`. The
+ * Neon database this deploys against is shared with other apps (a Prisma
+ * app's `migrate`/`db push` once wiped our `public` tables), so a dedicated
+ * schema keeps Intellitask's data isolated from anything operating on
+ * `public`.
+ */
+export const intellitask = pgSchema("intellitask");
+
+export const users = intellitask.table("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const sessions = pgTable("sessions", {
+export const sessions = intellitask.table("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   expiresAt: text("expires_at").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const settings = pgTable("settings", {
+export const settings = intellitask.table("settings", {
   id: integer("id").primaryKey(),
   aiProvider: text("ai_provider").notNull(),
   aiModel: text("ai_model").notNull(),
@@ -23,7 +32,7 @@ export const settings = pgTable("settings", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const projects = pgTable("projects", {
+export const projects = intellitask.table("projects", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
@@ -42,7 +51,7 @@ export const projects = pgTable("projects", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const tasks = pgTable("tasks", {
+export const tasks = intellitask.table("tasks", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   parentTaskId: text("parent_task_id"),
@@ -68,14 +77,14 @@ export const tasks = pgTable("tasks", {
   requiresResearch: boolean("requires_research").notNull(),
 });
 
-export const taskDependencies = pgTable("task_dependencies", {
+export const taskDependencies = intellitask.table("task_dependencies", {
   id: text("id").primaryKey(),
   taskId: text("task_id").notNull(),
   dependsOnTaskId: text("depends_on_task_id").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const milestones = pgTable("milestones", {
+export const milestones = intellitask.table("milestones", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   title: text("title").notNull(),
@@ -88,7 +97,7 @@ export const milestones = pgTable("milestones", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const contextEntries = pgTable("context_entries", {
+export const contextEntries = intellitask.table("context_entries", {
   id: text("id").primaryKey(),
   category: text("category").notNull(),
   title: text("title").notNull(),
@@ -98,7 +107,7 @@ export const contextEntries = pgTable("context_entries", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const researchSources = pgTable("research_sources", {
+export const researchSources = intellitask.table("research_sources", {
   id: text("id").primaryKey(),
   query: text("query").notNull(),
   sourceUrl: text("source_url").notNull(),
@@ -108,7 +117,7 @@ export const researchSources = pgTable("research_sources", {
   providerName: text("provider_name").notNull(),
 });
 
-export const projectResearch = pgTable("project_research", {
+export const projectResearch = intellitask.table("project_research", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   researchSourceId: text("research_source_id").notNull(),
@@ -116,7 +125,7 @@ export const projectResearch = pgTable("project_research", {
   createdAt: text("created_at").notNull(),
 });
 
-export const aiRuns = pgTable("ai_runs", {
+export const aiRuns = intellitask.table("ai_runs", {
   id: text("id").primaryKey(),
   operation: text("operation").notNull(),
   provider: text("provider").notNull(),
@@ -131,7 +140,7 @@ export const aiRuns = pgTable("ai_runs", {
   createdAt: text("created_at").notNull(),
 });
 
-export const inboxItems = pgTable("inbox_items", {
+export const inboxItems = intellitask.table("inbox_items", {
   id: text("id").primaryKey(),
   content: text("content").notNull(),
   status: text("status").notNull(),
